@@ -1,0 +1,173 @@
+---
+title: "Statistical inference with the GSS data by Wei Chun Chang"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `gss`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+Since the data is collected by GSS, I believe that they did use random sampling. However, because this is not an experiment. The data has nothing to do with random sampling. Even though there is causality between columns.
+
+* * *
+
+## Part 2: Research question
+
+I want to investigate if there is different proportion among races (White, Black, and Other). Since there are three types of race, here I'll use Chi-Square test of independence for the inference. For the audience, since now that the legality of owning gun is doubeted by public, maybe we can now more about those people who own guns. For myself, it's interested as well. Moreover, I think it's something worth being clarified.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+Since I only need two columns, I'll filter the others and take a look at the summary of them.
+
+```{r}
+# Since I only need two columns, I'll filter the others
+
+titles = c('race','owngun')
+gss = gss [,titles]
+
+# Let's take a look at the summary of these two columns
+summary(gss$race)
+
+summary(gss$owngun)
+```
+
+I saw the size of each race and the response of owngun. However, there are more than two types of answer to the owngun.
+
+I need to remove those rows with NA and refuse to answer from the data.
+
+```{r}
+gss = gss %>%
+  filter(owngun == 'Yes' | owngun == 'No')
+
+gss$owngun = factor(gss$owngun)
+```
+
+To have a look at the proportion of owning gun in each race, I'll have a bar plot first.
+
+```{r}
+gss_table = gss %>%
+  group_by(race, owngun) %>%
+  summarise(
+    n = n()
+  ) %>%
+  mutate(pct = round(prop.table(n) * 100,1))
+
+gss_race_table = gss %>%
+  group_by(race) %>%
+  summarise(
+    n = n()
+  ) %>%
+  mutate(pct = round(prop.table(n) * 100,2))
+```
+#### Whether the race and owning gun or not is independent or dependent
+
+```{r}
+ggplot(aes(race,n,fill=owngun),data=gss_table) + 
+  geom_bar(stat='identity', position = 'dodge') + 
+  geom_text(aes(x=race,y = n + 500, label = paste0(pct, '%')),
+            position = position_dodge(width = .9),size=3) + ggtitle("The proportion of owning gun in each race") +
+  xlab("Race") +  ylab("Count and proportion")
+
+bp <- ggplot(aes(x="", y=n, fill=race),data = gss_race_table)+
+geom_bar(width = 1, stat = "identity")
+
+gss_race_table
+```
+
+Here we can see the proportions of those owning gun and those who don't in each race, aseide with a table of the sample sizes of each race and its proportion.
+
+So I see that the ratio of people owning gun for the whites is not as low as the blacks and the other.
+
+* * *
+
+## Part 4: Inference
+
+### First, I'll start with the hypotheses.
+
+Null hypothesis: There is no dependence between race and owning gun. The proportions of owning gun don't vary by race.
+
+Alternative hypothesis: Race and owning gun are dependent. Owning gun vary crosiing races.
+
+### Checking conditions:
+
+#### Independence:
+
+* As we discussed, GSS did random sampling during the collection of data.
+
+* The size of the sample is less than 10% of population, and it's sampling without replacement.
+
+* And each case contributes to one cell in the table
+
+#### Sample size:
+
+Each scenario has at least 5 expected cases.
+
+### Method to be used and the follow-ups:
+
+I'll use chi-squared test of independence for hypothesis because one of the class has more than two levels. I need to calculate all the expected values based on the null hypothesis. Then, calculate the X-square and the degree of freedom. Also, I'll having the confidence intervals and the p-value. Finally, interpret the results.
+
+
+```{r}
+expected_white_owning_gun = round(27683*0.41)
+expected_black_owning_gun = round(4855*0.41)
+expected_other_owning_gun = round(1606*0.41)
+expected_white_without_gun = 27683 - expected_white_owning_gun
+expected_black_without_gun = 4855 - expected_black_owning_gun
+expected_other_without_gun = 1606 - expected_other_owning_gun
+
+X_square = (12448-expected_white_owning_gun)**2/expected_white_owning_gun + (1269-expected_black_owning_gun)**2/expected_black_owning_gun + (283-expected_other_owning_gun)**2/expected_other_owning_gun + (15235-expected_white_without_gun)**2/expected_white_without_gun + (3586-expected_black_without_gun)**2/expected_black_without_gun + (1323-expected_other_without_gun)**2/expected_other_without_gun
+
+pchisq(X_square, 2, lower.tail = FALSE)
+```
+
+After getting the p-value, I'll have the confidence intervals of three race to see that if there is any overlap part.
+
+```{r}
+gss_white = gss[gss$race == 'White',]
+
+inference( y = owngun, data = gss_white, statistic = "proportion", type = "ci", method = "theoretical", success = "Yes")
+```
+
+```{r}
+gss_black = gss[gss$race == 'Black',]
+
+inference( y = owngun, data = gss_black, statistic = "proportion", type = "ci", method = "theoretical", success = "Yes")
+```
+
+```{r}
+gss_other = gss[gss$race == 'Other',]
+
+inference( y = owngun, data = gss_other, statistic = "proportion", type = "ci", method = "theoretical", success = "Yes")
+```
+
+And we can see that based on 95% confidence intervals, there is no overlap part among three.
+
+The p-value is extremely small that I can reject null hypothesis, saying that owning gun or not and race are dependent. However, I cannot conclude that race is one of the reason making people decide to have gun since there are more attributes that might be the reason.
