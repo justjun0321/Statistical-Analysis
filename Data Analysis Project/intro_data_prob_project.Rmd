@@ -1,0 +1,165 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(scales)
+```
+
+### Load data
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+First, this is an observational study since the CDC collected it by phone call. And since they conduct the survey to a random person in a household and those in private residence, it's fair random sampling. However, the part of collecting data through the cellular phone are not. It's based on the convenience. No ramdom assignment in this part. Therefore, the survey may not be representative to the population.
+
+And the survey is mean to find the relation between behaviour about preventing diseases and unhealthy situations. Therefore, the explanatory variables are those preventive practices and the response variables are the diseases and injuries.
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:**
+How many people have personal doctors? And among them, how many are males and females? May indicates whether males or females are prone to have a personal doctor or more.
+
+**Research quesion 2:**
+Do higher education or higher income indicate the habit of using seatbelt? Is the idea of using a seatbelt limit to better Socioeconomic status?
+
+**Research quesion 3:**
+Do people correlate nervousness with mental unhealth? Even though we are not aware of that, we might subconsciously think being nervous is a kind of mental unhealthy.
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+**Research quesion 1:**
+
+Q1. How many people have personal doctors? And among them, how many are males and females?
+
+```{r}
+addmargins(table(brfss2013$persdoc2,brfss2013$sex))
+
+personal_doctor = brfss2013 %>%
+  group_by(persdoc2, sex) %>%
+  summarise(
+    n = n()
+  ) %>%
+  na.omit(persdoc2) %>%
+  mutate(pct = round(prop.table(n) * 100,2))
+
+ggplot(personal_doctor,aes(persdoc2,n,fill=sex)) +
+  geom_bar(stat='identity', position = 'dodge') +
+  geom_text(aes(x=persdoc2,y = n - 5000, label = paste0(pct, '%')),position = position_dodge(width = .9),size=3) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+ ggtitle("How many people have personal doctors? \n And among them, how many are males and females?") +
+  xlab("How many personal doctors do they have") + ylab("Count")+ scale_y_continuous(labels = comma)
+
+#The ratio of females with at least one doctor
+n1 = 289560
+pa = (228534+25300)/n1
+print(pa)
+#The ratio of males with at least one doctor
+n2 = 200412
+pb = (140520+16034)/n2
+print(pb)
+```
+
+We can see that there are more females having at least one personal doctor than males. Over 85% of females in the sample have at least one personal doctor, while, among males, there are about 78% of them have at least one personal doctor. Now, I won't to do an AB testing to see if the difference is real.
+
+H0: There is no difference between the proportion of males with at least a doctor and that of females
+H1: There is a significant difference between the proportion of males and females with at least a personal doctor.
+```{r}
+sea = (pa*(1-pa))/n1
+seb = (pb*(1-pb))/n2
+z2 = ((pa-pb)/sqrt(sea+seb))
+1 - pnorm(abs(z2))
+```
+The p-value is close to 0. So I'll say that I can reject the H0 hypothesis that there is a significant difference between the proportion of males with at least a doctor and that of females.
+
+
+**Research quesion 2:**
+
+Do higher education or higher income indicate the habit of using seatbelt?
+
+```{r}
+addmargins(table(brfss2013$educa,brfss2013$seatbelt))
+
+education_seatbelt = brfss2013 %>%
+  select(educa,seatbelt) %>%
+  filter(!(educa =="NA's" | seatbelt =="NA's")) %>%
+  group_by(educa,seatbelt) %>%
+  summarise(
+    n = n()
+  ) %>%
+  mutate(pct = round(prop.table(n) * 100,2))
+
+ggplot(education_seatbelt,aes(educa,pct,fill=seatbelt)) + geom_bar(stat='identity', position = 'dodge') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+ ggtitle("Does higher education indicate \n the awareness of preventive practices (seatbelt using)") +
+  xlab("Education level") + ylab("Percentage")+ scale_y_continuous(labels = comma)
+```
+
+It seems that the habit of using seatbelt doesn't have too much thing to do with the education level. Most of the citizens do use the seatbelt in their life.
+
+```{r}
+addmargins(table(brfss2013$income2,brfss2013$seatbelt))
+
+income_seatbelt = brfss2013 %>%
+  select(income2,seatbelt) %>%
+  filter(!(income2 =="NA's" | seatbelt =="NA's")) %>%
+  group_by(income2,seatbelt) %>%
+  summarise(
+    n = n()
+  ) %>%
+  mutate(pct = round(prop.table(n) * 100,2))
+
+ggplot(income_seatbelt,aes(income2,pct,fill=seatbelt)) + geom_bar(stat='identity', position = 'dodge') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))+ ggtitle("Does higher income indicate \n the awareness of preventive practices (seatbelt using)") +
+  xlab("Income level") + ylab("Percentage")+ scale_y_continuous(labels = comma)
+```
+
+There isn't too much correlation between income level and the habit of using seatbelt. In each income level, over 75% of the people always use seatbelt.
+
+**Research quesion 3:**
+Do people correlate nervousness with mental unhealth?
+
+```{r}
+nervous_unhealth = brfss2013 %>%
+  select(misnervs,menthlth) %>%
+  filter(!(misnervs =="NA's" | menthlth > 60)) %>%
+  group_by(misnervs) %>%
+  summarise(
+    mean_unhealth_day = round(mean(menthlth),2),
+    median_unhealth_day = round(median(menthlth),2),
+    n = n()
+  ) %>%
+  mutate(pct = round(prop.table(n) * 100,2))
+nervous_unhealth
+```
+
+```{r}
+ggplot(nervous_unhealth,aes(misnervs,mean_unhealth_day,fill=misnervs)) +
+  geom_bar(stat='identity', position = 'dodge') +
+  geom_text(aes(x=misnervs,y = mean_unhealth_day - 0.5, label = paste0(mean_unhealth_day, 'days')),position = position_dodge(width = .9),size=3) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))+ ggtitle("Do people correlate nervousness with mental unhealth?") +
+  xlab("How often being nervous in the past 30 days") + ylab("Mean days")+ scale_y_continuous(labels = comma)
+```
+
+It's true that people with more frequently nervous have more mental unhealthy days. So I believe that people think nervous too much are some kinds of mental unhealth,too. Even though, in my own opinion, being nervous seems normal in our daily life, it may indicates unhealth of our mental.
