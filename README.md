@@ -1,7 +1,7 @@
 # Statistical-Analysis
-Hypothesis/ AB Testing/ Simulation, etc
+Hypothesis/ AB Testing/ Simulation/ Linear Regression, etc
 
-Here are my works about Statistical Analysis, Hypothesis, and AB Testing
+Here are my works about Statistical Analysis, Hypothesis, Linear Regression, and AB Testing
 
 Some of the works are the projects of the Statistics with R course on Coursera
 
